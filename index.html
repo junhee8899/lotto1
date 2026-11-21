@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>로또 번호 추첨</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+
+  body {
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    color: #fff;
+    background: radial-gradient(ellipse at 50% 30%, #1c2a6b 0%, #0d1540 45%, #050a24 100%);
+    background-color: #050a24;
+    overflow-x: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+
+  /* ===== 반짝이는 별 ===== */
+  #stars {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .star {
+    position: absolute;
+    background: #fff;
+    border-radius: 50%;
+    animation: twinkle var(--d, 3s) ease-in-out infinite;
+    animation-delay: var(--delay, 0s);
+    opacity: 0.2;
+  }
+  .star.big {
+    box-shadow: 0 0 6px 2px rgba(255, 255, 255, 0.7);
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.15; transform: scale(0.7); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  /* 회전하는 스포트라이트 */
+  .spotlight {
+    position: fixed;
+    top: -30vh;
+    width: 60vw;
+    height: 140vh;
+    background: linear-gradient(to bottom, rgba(120, 160, 255, 0.18), transparent 70%);
+    filter: blur(30px);
+    transform-origin: top center;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .spotlight.left { left: -10vw; animation: swingL 8s ease-in-out infinite; }
+  .spotlight.right { right: -10vw; animation: swingR 8s ease-in-out infinite; }
+  @keyframes swingL { 0%,100% { transform: rotate(-25deg); } 50% { transform: rotate(10deg); } }
+  @keyframes swingR { 0%,100% { transform: rotate(25deg); } 50% { transform: rotate(-10deg); } }
+
+  /* ===== 메인 무대 ===== */
+  .stage {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 760px;
+    text-align: center;
+    padding: 40px 24px 44px;
+    border-radius: 28px;
+    background: linear-gradient(160deg, rgba(40, 60, 150, 0.45), rgba(10, 16, 60, 0.6));
+    border: 2px solid rgba(255, 215, 90, 0.55);
+    box-shadow:
+      0 0 0 6px rgba(255, 215, 90, 0.08),
+      0 0 40px rgba(255, 200, 60, 0.25),
+      inset 0 0 60px rgba(80, 120, 255, 0.2);
+    backdrop-filter: blur(4px);
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: #ffe58a;
+    padding: 6px 16px;
+    border: 1px solid rgba(255, 229, 138, 0.6);
+    border-radius: 999px;
+    margin-bottom: 14px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 6px rgba(255, 229, 138, 0.3); }
+    50% { box-shadow: 0 0 18px rgba(255, 229, 138, 0.8); }
+  }
+
+  h1 {
+    font-size: clamp(32px, 8vw, 56px);
+    font-weight: 900;
+    letter-spacing: 2px;
+    background: linear-gradient(180deg, #fff6c8 0%, #ffd23f 45%, #ff9f1a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 3px 0 #8a4b00) drop-shadow(0 0 18px rgba(255, 200, 50, 0.6));
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    color: #b9c6ff;
+    font-size: clamp(14px, 3.6vw, 17px);
+    margin-bottom: 32px;
+  }
+
+  /* ===== 공 영역 ===== */
+  .balls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: clamp(5px, 1.8vw, 18px);
+    min-height: clamp(70px, 16vw, 110px);
+    margin-bottom: 36px;
+    flex-wrap: nowrap;
+  }
+
+  .slot {
+    width: clamp(36px, 11vw, 88px);
+    height: clamp(36px, 11vw, 88px);
+    border-radius: 50%;
+    border: 2px dashed rgba(185, 198, 255, 0.3);
+    flex-shrink: 0;
+  }
+
+  .ball {
+    --c1: #fff;
+    --c2: #ccc;
+    --c3: #888;
+    width: clamp(36px, 11vw, 88px);
+    height: clamp(36px, 11vw, 88px);
+    border-radius: 50%;
+    flex-shrink: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(15px, 4.6vw, 34px);
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 2px 3px rgba(0, 0, 0, 0.45);
+    background:
+      radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.4) 12%, transparent 30%),
+      radial-gradient(circle at 50% 50%, var(--c1) 0%, var(--c2) 55%, var(--c3) 100%);
+    box-shadow:
+      inset -6px -8px 14px rgba(0, 0, 0, 0.35),
+      inset 4px 4px 10px rgba(255, 255, 255, 0.3),
+      0 10px 18px rgba(0, 0, 0, 0.5),
+      0 0 22px var(--glow, rgba(255,255,255,0.3));
+    animation: bounceIn 0.9s cubic-bezier(.28,.84,.42,1) both;
+  }
+  /* 바닥 그림자 */
+  .ball::after {
+    content: "";
+    position: absolute;
+    bottom: -14px;
+    left: 15%;
+    width: 70%;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.45);
+    filter: blur(3px);
+    animation: shadowIn 0.9s cubic-bezier(.28,.84,.42,1) both;
+  }
+
+  .ball.yellow { --c1: #ffe98a; --c2: #fbc400; --c3: #b88a00; --glow: rgba(251, 196, 0, 0.6); color: #fff; }
+  .ball.blue   { --c1: #8fd0ff; --c2: #1f8fe6; --c3: #0a4f94; --glow: rgba(31, 143, 230, 0.6); }
+  .ball.red    { --c1: #ff9a8f; --c2: #f03e2a; --c3: #9a1a0e; --glow: rgba(240, 62, 42, 0.6); }
+  .ball.gray   { --c1: #d4d4d4; --c2: #8a8a8a; --c3: #4a4a4a; --glow: rgba(200, 200, 200, 0.45); }
+  .ball.green  { --c1: #a8f08a; --c2: #3fb82a; --c3: #1d6b12; --glow: rgba(63, 184, 42, 0.6); }
+
+  @keyframes bounceIn {
+    0%   { transform: translateY(-140px) scale(0.3); opacity: 0; }
+    35%  { transform: translateY(0) scale(1.08, 0.88); opacity: 1; }
+    52%  { transform: translateY(-34px) scale(0.96, 1.04); }
+    68%  { transform: translateY(0) scale(1.04, 0.94); }
+    80%  { transform: translateY(-10px) scale(1); }
+    90%  { transform: translateY(0) scale(1.01, 0.98); }
+    100% { transform: translateY(0) scale(1); }
+  }
+  @keyframes shadowIn {
+    0%   { transform: scale(0.2); opacity: 0; }
+    35%  { transform: scale(1); opacity: 1; }
+    52%  { transform: scale(0.7); opacity: 0.6; }
+    68%  { transform: scale(1); opacity: 1; }
+    80%  { transform: scale(0.9); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ===== 버튼 ===== */
+  .draw-btn {
+    position: relative;
+    font-family: inherit;
+    font-size: clamp(20px, 5.5vw, 26px);
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: #4a2500;
+    padding: 20px 56px;
+    min-width: 220px;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    background: linear-gradient(180deg, #fff3a8 0%, #ffd23f 40%, #ffab1a 100%);
+    box-shadow:
+      0 8px 0 #b56a00,
+      0 14px 24px rgba(0, 0, 0, 0.5),
+      0 0 30px rgba(255, 200, 60, 0.55),
+      inset 0 2px 0 rgba(255, 255, 255, 0.8);
+    transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    overflow: hidden;
+  }
+  .draw-btn::before {
+    content: "";
+    position: absolute;
+    top: 0; left: -60%;
+    width: 40%; height: 100%;
+    background: linear-gradient(100deg, transparent, rgba(255,255,255,0.7), transparent);
+    transform: skewX(-20deg);
+    animation: shine 3s ease-in-out infinite;
+  }
+  @keyframes shine {
+    0%, 60% { left: -60%; }
+    100% { left: 130%; }
+  }
+  .draw-btn:hover { filter: brightness(1.07); }
+  .draw-btn:active,
+  .draw-btn.pressed {
+    transform: translateY(6px);
+    box-shadow:
+      0 2px 0 #b56a00,
+      0 4px 10px rgba(0, 0, 0, 0.5),
+      0 0 20px rgba(255, 200, 60, 0.45),
+      inset 0 2px 0 rgba(255, 255, 255, 0.6);
+  }
+  .draw-btn:disabled {
+    cursor: not-allowed;
+    filter: grayscale(0.5) brightness(0.85);
+  }
+  .draw-btn:disabled::before { animation: none; }
+  .draw-btn:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+
+  .status {
+    margin-top: 24px;
+    min-height: 1.5em;
+    font-size: 15px;
+    color: #ffe58a;
+    letter-spacing: 1px;
+  }
+
+  /* 축하 반짝이 */
+  .confetti {
+    position: fixed;
+    top: -20px;
+    width: 8px;
+    height: 14px;
+    z-index: 2;
+    pointer-events: none;
+    animation: fall linear forwards;
+  }
+  @keyframes fall {
+    to { transform: translateY(110vh) rotate(720deg); opacity: 0.2; }
+  }
+
+  @media (max-width: 480px) {
+    .stage { padding: 30px 14px 34px; border-radius: 22px; }
+    .draw-btn { padding: 18px 40px; min-width: 200px; }
+    .balls { margin-bottom: 30px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .star, .spotlight, .badge, .draw-btn::before { animation: none; }
+  }
+</style>
+</head>
+<body>
+  <div id="stars"></div>
+  <div class="spotlight left"></div>
+  <div class="spotlight right"></div>
+
+  <main class="stage">
+    <div class="badge">LIVE ★ 추첨 방송</div>
+    <h1>행운의 로또 6/45</h1>
+    <p class="subtitle">버튼을 눌러 이번 주 행운의 번호를 뽑아보세요!</p>
+
+    <div class="balls" id="balls" aria-live="polite">
+      <div class="slot"></div><div class="slot"></div><div class="slot"></div>
+      <div class="slot"></div><div class="slot"></div><div class="slot"></div>
+    </div>
+
+    <button class="draw-btn" id="drawBtn" type="button">번호 뽑기</button>
+    <p class="status" id="status"></p>
+  </main>
+
+<script>
+  // ===== 별 생성 =====
+  (function makeStars() {
+    const box = document.getElementById('stars');
+    const count = window.innerWidth < 600 ? 80 : 150;
+    for (let i = 0; i < count; i++) {
+      const s = document.createElement('div');
+      const size = Math.random() * 2.5 + 0.8;
+      s.className = 'star' + (size > 2.6 ? ' big' : '');
+      s.style.width = s.style.height = size + 'px';
+      s.style.left = Math.random() * 100 + '%';
+      s.style.top = Math.random() * 100 + '%';
+      s.style.setProperty('--d', (Math.random() * 3 + 2) + 's');
+      s.style.setProperty('--delay', (Math.random() * 5) + 's');
+      box.appendChild(s);
+    }
+  })();
+
+  const ballsEl = document.getElementById('balls');
+  const btn = document.getElementById('drawBtn');
+  const statusEl = document.getElementById('status');
+
+  // 1~45 중 겹치지 않는 6개 (Fisher–Yates)
+  function pickNumbers() {
+    const pool = Array.from({ length: 45 }, (_, i) => i + 1);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const buf = new Uint32Array(1);
+      crypto.getRandomValues(buf);
+      const j = buf[0] % (i + 1);
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return pool.slice(0, 6).sort((a, b) => a - b);
+  }
+
+  function colorOf(n) {
+    if (n <= 10) return 'yellow';
+    if (n <= 20) return 'blue';
+    if (n <= 30) return 'red';
+    if (n <= 40) return 'gray';
+    return 'green';
+  }
+
+  function confetti() {
+    const colors = ['#fbc400', '#1f8fe6', '#f03e2a', '#bbbbbb', '#3fb82a', '#ffffff'];
+    for (let i = 0; i < 60; i++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.background = colors[i % colors.length];
+      c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+      c.style.animationDuration = (Math.random() * 2 + 2) + 's';
+      c.style.animationDelay = (Math.random() * 0.6) + 's';
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 5000);
+    }
+  }
+
+  function draw() {
+    btn.disabled = true;
+    statusEl.textContent = '추첨 중...';
+    const nums = pickNumbers();
+
+    // 빈 자리 6개로 초기화
+    ballsEl.innerHTML = '';
+    const slots = nums.map(() => {
+      const s = document.createElement('div');
+      s.className = 'slot';
+      ballsEl.appendChild(s);
+      return s;
+    });
+
+    nums.forEach((n, i) => {
+      setTimeout(() => {
+        const b = document.createElement('div');
+        b.className = 'ball ' + colorOf(n);
+        b.textContent = n;
+        ballsEl.replaceChild(b, slots[i]);
+
+        if (i === nums.length - 1) {
+          setTimeout(() => {
+            statusEl.textContent = '🎉 축하합니다! 행운의 번호: ' + nums.join(', ');
+            btn.disabled = false;
+            confetti();
+          }, 700);
+        }
+      }, i * 500);
+    });
+  }
+
+  btn.addEventListener('click', draw);
+</script>
+</body>
+</html>
